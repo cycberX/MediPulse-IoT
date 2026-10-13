@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#020617">
+  <title>Smart Dose & Buzzer Monitor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Mobile app native touch feel */
+    * { -webkit-tap-highlight-color: transparent; }
+    body { padding-bottom: env(safe-area-inset-bottom); }
+  </style>
+</head>
+<body class="min-h-full flex flex-col justify-between text-slate-100 font-sans antialiased selection:bg-indigo-500 selection:text-white">
+
+  <!-- ========================================== -->
+  <!-- 1. MOBILE PIN SCREEN                       -->
+  <!-- ========================================== -->
+  <main id="authScreen" class="flex-1 flex flex-col justify-center items-center px-4 py-8 w-full max-w-sm mx-auto">
+    <div class="w-full text-center space-y-6">
+      
+      <!-- Icon -->
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-500/10 text-indigo-400 ring-1 ring-indigo-500/20 shadow-inner">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+        </svg>
+      </div>
+
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight text-white">Enter Device PIN</h1>
+        <p class="text-xs text-slate-400 mt-1">Provide your 4-digit code (e.g. 1552) to inspect profile status</p>
+      </div>
+
+      <!-- 4-Box Split PIN Input for Touchscreens -->
+      <form id="pinForm" onsubmit="submitPin(event)" class="space-y-6">
+        <div class="flex justify-center gap-3">
+          <input type="password" inputmode="numeric" maxlength="1" class="pin-box w-14 h-16 text-center text-2xl font-mono font-bold bg-slate-900 border border-slate-700 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-white outline-none transition" autofocus />
+          <input type="password" inputmode="numeric" maxlength="1" class="pin-box w-14 h-16 text-center text-2xl font-mono font-bold bg-slate-900 border border-slate-700 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-white outline-none transition" />
+          <input type="password" inputmode="numeric" maxlength="1" class="pin-box w-14 h-16 text-center text-2xl font-mono font-bold bg-slate-900 border border-slate-700 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-white outline-none transition" />
+          <input type="password" inputmode="numeric" maxlength="1" class="pin-box w-14 h-16 text-center text-2xl font-mono font-bold bg-slate-900 border border-slate-700 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-white outline-none transition" />
+        </div>
+
+        <p id="pinError" class="text-xs text-rose-400 font-medium hidden">Please enter all 4 digits correctly.</p>
+
+        <button type="submit" class="w-full py-4 px-4 bg-indigo-600 active:bg-indigo-700 font-semibold text-sm rounded-xl text-white shadow-lg shadow-indigo-600/25 active:scale-[0.98] transition">
+          Unlock Dashboard
+        </button>
+      </form>
+    </div>
+  </main>
+
+  <!-- ========================================== -->
+  <!-- 2. MOBILE-FIRST DASHBOARD                  -->
+  <!-- ========================================== -->
+  <main id="dashboardScreen" class="hidden flex-1 flex flex-col w-full max-w-md mx-auto pb-28 sm:pb-8">
+    
+    <!-- Top Navigation Bar -->
+    <header class="sticky top-0 z-20 backdrop-blur-md bg-slate-950/80 border-b border-slate-800/80 px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span class="text-sm font-semibold tracking-wide text-slate-200">Device #<span id="displayCode" class="text-indigo-400">----</span></span>
+      </div>
+      <button onclick="logout()" class="text-xs font-medium text-slate-400 hover:text-rose-400 active:scale-95 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg transition">
+        Switch User
+      </button>
+    </header>
+
+    <div class="p-4 space-y-4">
+      
+      <!-- Live Clock & Window Badge -->
+      <div class="flex items-center justify-between bg-slate-900 border border-slate-800/80 rounded-xl px-4 py-3">
+        <div>
+          <span class="text-[10px] uppercase font-bold text-slate-500 block">India Standard Time</span>
+          <span id="istClock" class="font-mono text-base font-bold text-slate-200">--:--:-- IST</span>
+        </div>
+        <div class="text-right">
+          <span class="text-[10px] uppercase font-bold text-slate-500 block">Active Slot</span>
+          <span id="activeWindow" class="text-xs font-semibold uppercase tracking-wider text-indigo-400 bg-indigo-950/50 border border-indigo-800/50 px-2 py-0.5 rounded-md">--</span>
+        </div>
+      </div>
+
+      <!-- Hero Buzzer Card -->
+      <section id="buzzerCard" class="relative overflow-hidden rounded-2xl p-5 border transition-all duration-300 bg-slate-900 border-slate-800 text-slate-300">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-[11px] uppercase tracking-wider font-semibold text-slate-400">Current Status</div>
+            <div id="doseStatus" class="text-2xl font-black tracking-tight text-white mt-0.5">--</div>
+          </div>
+          <div id="buzzerPill" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700">
+            <span id="buzzerDot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+            <span id="buzzerText">BUZZER OFF</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- History Section -->
+      <section class="bg-slate-900 border border-slate-800/80 rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xs uppercase font-bold tracking-wider text-slate-400">Dose Logs</h2>
+          <span class="text-[10px] text-slate-500">SQLite Persistent</span>
+        </div>
+
+        <div class="space-y-2" id="logsList">
+          <div class="text-center py-6 text-xs text-slate-500">No dose records yet.</div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Mobile Fixed Bottom Action Sheet -->
+    <div class="fixed bottom-0 inset-x-0 bg-slate-950/90 backdrop-blur-lg border-t border-slate-800/80 p-4 sm:static sm:bg-transparent sm:border-none sm:p-4 z-10">
+      <button 
+        id="markTakenBtn"
+        onclick="markTaken()" 
+        class="w-full py-4 px-4 bg-emerald-600 active:bg-emerald-700 font-bold text-sm tracking-wide rounded-xl text-white shadow-lg shadow-emerald-600/20 active:scale-[0.98] transition flex items-center justify-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+        </svg>
+        <span>Mark as TAKEN (Silence Buzzer)</span>
+      </button>
+    </div>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- 3. CLIENT SCRIPT                           -->
+  <!-- ========================================== -->
+  <script>
+    let currentCode = localStorage.getItem('buzzer_user_code') || null;
+    let currentWindow = 'morning';
+    let pollInterval = null;
+    let audioCtx = null;
+
+    // Web Audio synthesizer beep
+    function playBuzzerBeep() {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.25);
+      } catch (e) {
+        // Audio policy restrictions on first touch
+      }
+    }
+
+    // Auto-advance PIN Boxes on typing & backspace
+    const pinInputs = document.querySelectorAll('.pin-box');
+    pinInputs.forEach((input, index) => {
+      input.addEventListener('input', (e) => {
+        if (e.target.value.length === 1 && index < pinInputs.length - 1) {
+          pinInputs[index + 1].focus();
+        }
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !e.target.value && index > 0) {
+          pinInputs[index - 1].focus();
+        }
+      });
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      if (currentCode && currentCode.length === 4) {
+        showDashboard();
+      }
+    });
+
+    function submitPin(e) {
+      e.preventDefault();
+      const code = Array.from(pinInputs).map(i => i.value).join('');
+
+      if (!/^\d{4}$/.test(code)) {
+        document.getElementById('pinError').classList.remove('hidden');
+        return;
+      }
+
+      currentCode = code;
+      localStorage.setItem('buzzer_user_code', currentCode);
+      showDashboard();
+    }
+
+    function logout() {
+      clearInterval(pollInterval);
+      localStorage.removeItem('buzzer_user_code');
+      currentCode = null;
+      document.getElementById('dashboardScreen').classList.add('hidden');
+      document.getElementById('authScreen').classList.remove('hidden');
+      pinInputs.forEach(i => i.value = '');
+      pinInputs[0].focus();
+    }
+
+    function showDashboard() {
+      document.getElementById('authScreen').classList.add('hidden');
+      document.getElementById('dashboardScreen').classList.remove('hidden');
+      document.getElementById('displayCode').textContent = currentCode;
+
+      refreshData();
+      clearInterval(pollInterval);
+      pollInterval = setInterval(refreshData, 2000);
+    }
+
+    async function refreshData() {
+      if (!currentCode) return;
+
+      try {
+        const res = await fetch(`/api/get_status?code=${encodeURIComponent(currentCode)}`);
+        const data = await res.json();
+
+        currentWindow = data.active_window;
+        document.getElementById('istClock').textContent = `${data.ist_time} IST`;
+        document.getElementById('activeWindow').textContent = data.active_window;
+
+        // Status typography
+        const statusEl = document.getElementById('doseStatus');
+        statusEl.textContent = data.status;
+        if (data.status === 'TAKEN') statusEl.className = 'text-2xl font-black text-emerald-400 mt-0.5';
+        else if (data.status === 'NOT_TAKEN') statusEl.className = 'text-2xl font-black text-rose-500 mt-0.5';
+        else if (data.status === 'PENDING') statusEl.className = 'text-2xl font-black text-amber-400 mt-0.5';
+        else statusEl.className = 'text-2xl font-black text-slate-400 mt-0.5';
+
+        // Buzzer state, audio beep, and haptic feedback
+        const card = document.getElementById('buzzerCard');
+        const pill = document.getElementById('buzzerPill');
+        const dot = document.getElementById('buzzerDot');
+        const text = document.getElementById('buzzerText');
+
+        if (data.buzzer) {
+          card.className = 'relative overflow-hidden rounded-2xl p-5 border transition-all duration-300 bg-rose-950/20 border-rose-500/50 text-rose-300 ring-1 ring-rose-500/30';
+          pill.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse';
+          dot.className = 'w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]';
+          text.textContent = 'RINGING';
+
+          playBuzzerBeep();
+          if ('vibrate' in navigator) navigator.vibrate([150, 50, 150]);
+        } else {
+          card.className = 'relative overflow-hidden rounded-2xl p-5 border transition-all duration-300 bg-slate-900 border-slate-800 text-slate-300';
+          pill.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700';
+          dot.className = 'w-2 h-2 rounded-full bg-slate-500';
+          text.textContent = 'BUZZER OFF';
+        }
+
+        // Fetch logs for this code
+        const logsRes = await fetch(`/api/logs?code=${encodeURIComponent(currentCode)}`);
+        const logs = await logsRes.json();
+        const logsContainer = document.getElementById('logsList');
+
+        if (!logs.length) {
+          logsContainer.innerHTML = '<div class="text-center py-6 text-xs text-slate-500">No dose records yet.</div>';
+        } else {
+          logsContainer.innerHTML = logs.map(row => `
+            <div class="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800/60 text-xs">
+              <div>
+                <span class="font-mono text-slate-200 font-semibold block">${row.date_taken}</span>
+                <span class="text-[11px] text-slate-500 capitalize">${row.window} Slot</span>
+              </div>
+              <div class="text-right">
+                <span class="font-bold block ${row.status === 'TAKEN' ? 'text-emerald-400' : 'text-slate-400'}">${row.status}</span>
+                <span class="font-mono text-[10px] text-slate-500">${row.created_at.split(' ')[1] || row.created_at}</span>
+              </div>
+            </div>
+          `).join('');
+        }
+
+      } catch (err) {
+        console.error('Fetch error:', err);
+      }
+    }
+
+    async function markTaken() {
+      if (!currentCode) return;
+      if ('vibrate' in navigator) navigator.vibrate(50); // Touch haptic
+
+      try {
+        await fetch(`/api/post_status?code=${encodeURIComponent(currentCode)}&status=TAKEN&time=${currentWindow}`, {
+          method: 'POST'
+        });
+        refreshData();
+      } catch (err) {
+        alert('Failed to update status');
+      }
+    }
+  </script>
+</body>
+</html>
