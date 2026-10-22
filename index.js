@@ -66,12 +66,12 @@ function computeProfileState(code) {
   let buzzer = false;
 
   // Rule logic applied for profiles (including 1552)
-  if (hour >= 5 && hour < 11) {
+  if (hour >= 5 && hour < 10) {
     // 5:00 AM - 10:59 AM: Pending
     active_window = 'morning';
     status = 'PENDING';
     buzzer = false;
-  } else if (hour >= 11 && hour < 17) {
+  } else if (hour >= 10 && hour < 17) {
     // 11:00 AM - 4:59 PM: Morning window
     active_window = 'morning';
     const record = checkDose.get(code, 'morning', todayDate);
